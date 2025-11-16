@@ -1,0 +1,119 @@
+
+import React, { useState } from 'react';
+import { VideoConfig, VideoAspectRatio, VideoResolution } from '../types';
+import { generateVideo } from '../services/geminiService';
+import LoadingSpinner from './LoadingSpinner';
+
+interface TextToVideoProps {
+  onApiKeyError: () => void;
+}
+
+const TextToVideo: React.FC<TextToVideoProps> = ({ onApiKeyError }) => {
+  const [prompt, setPrompt] = useState('');
+  const [config, setConfig] = useState<VideoConfig>({ aspectRatio: '16:9', resolution: '720p' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [error, setError] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+
+  const handleGenerate = async () => {
+    if (!prompt) {
+      setError('Please enter a prompt.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    setVideoUrl('');
+    try {
+      const url = await generateVideo(prompt, config, setProgressMessage);
+      setVideoUrl(url);
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+      if (err.message.includes("API key is invalid")) {
+        onApiKeyError();
+      }
+    } finally {
+      setIsLoading(false);
+      setProgressMessage('');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label htmlFor="prompt" className="block text-lg font-medium text-light-text mb-2">
+          Your Prompt
+        </label>
+        <textarea
+          id="prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="e.g., A cinematic shot of a futuristic city at sunset, with flying cars."
+          className="w-full h-28 p-4 bg-dark-card border border-dark-border rounded-lg text-light-text placeholder-medium-text focus:ring-2 focus:ring-brand-purple focus:outline-none transition"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="aspectRatio" className="block text-sm font-medium text-medium-text mb-2">Aspect Ratio</label>
+          <select
+            id="aspectRatio"
+            value={config.aspectRatio}
+            onChange={(e) => setConfig({ ...config, aspectRatio: e.target.value as VideoAspectRatio })}
+            className="w-full p-3 bg-dark-card border border-dark-border rounded-lg text-light-text focus:ring-2 focus:ring-brand-purple focus:outline-none"
+          >
+            <option value="16:9">16:9 (Landscape)</option>
+            <option value="9:16">9:16 (Portrait)</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="resolution" className="block text-sm font-medium text-medium-text mb-2">Resolution</label>
+          <select
+            id="resolution"
+            value={config.resolution}
+            onChange={(e) => setConfig({ ...config, resolution: e.target.value as VideoResolution })}
+            className="w-full p-3 bg-dark-card border border-dark-border rounded-lg text-light-text focus:ring-2 focus:ring-brand-purple focus:outline-none"
+          >
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+          </select>
+        </div>
+      </div>
+
+      <button
+        onClick={handleGenerate}
+        disabled={isLoading}
+        className="w-full flex justify-center items-center py-4 px-6 bg-brand-purple text-white font-bold rounded-lg hover:opacity-90 transition-opacity duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isLoading ? (
+          <>
+            <LoadingSpinner />
+            <span className="ml-3">Generating...</span>
+          </>
+        ) : (
+          'Generate Video'
+        )}
+      </button>
+      
+      {error && <div className="text-red-400 text-center p-3 bg-red-900/20 rounded-lg">{error}</div>}
+
+      <div className="mt-6 aspect-video bg-dark-card rounded-lg flex items-center justify-center border border-dark-border">
+        {isLoading ? (
+          <div className="text-center p-4">
+            <LoadingSpinner />
+            <p className="mt-4 text-medium-text animate-pulse">{progressMessage}</p>
+          </div>
+        ) : videoUrl ? (
+          <video src={videoUrl} controls autoPlay loop className="w-full h-full rounded-lg" />
+        ) : (
+          <div className="text-center text-medium-text">
+             <p>Your generated video will appear here.</p>
+             <p className="text-sm mt-2">(Note: AI-generated videos do not include audio.)</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TextToVideo;
